@@ -1,0 +1,13 @@
+{
+  "chats": [
+    {
+      "chat_id": -1001111111111,
+      "title": "Discussion group of friend",
+      "enabled": true,
+      "notify_mode": "group",
+      "delete_notice_after_seconds": 20,
+      "warning_template": "Комментарий удалён, потому что он не был привязан ни к одному посту.\n\n<b>Ваш текст:</b>\n{text}",
+      "exempt_user_ids": [123456789]
+    }
+  ]
+}
