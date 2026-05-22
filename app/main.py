@@ -5,7 +5,7 @@ import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
-from app.handlers import cmd_chatid, cmd_start, cmd_whereami
+from app.handlers import chatid, start, whereami
 from app.moderation import build_moderation_handler
 from app.settings import load_settings
 
@@ -25,9 +25,9 @@ def build_application():
 
     application = Application.builder().token(settings.bot_token).build()
 
-    application.add_handler(CommandHandler("start", cmd_start))
-    application.add_handler(CommandHandler("chatid", cmd_chatid))
-    application.add_handler(CommandHandler("whereami", cmd_whereami))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("chatid", chatid))
+    application.add_handler(CommandHandler("whereami", whereami))
     application.add_handler(
         MessageHandler(
             filters.ALL & ~filters.UpdateType.EDITED_MESSAGE,
@@ -64,7 +64,10 @@ async def run_once() -> None:
     await application.initialize()
     await application.start()
     try:
-        updates = await application.bot.get_updates(timeout=0, allowed_updates=Update.ALL_TYPES)
+        updates = await application.bot.get_updates(
+            timeout=0,
+            allowed_updates=Update.ALL_TYPES,
+        )
         logger.info("Fetched %s pending updates", len(updates))
 
         for update in updates:
