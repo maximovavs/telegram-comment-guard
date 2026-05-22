@@ -1,4 +1,3 @@
-
 import html
 import logging
 from typing import Any
@@ -14,10 +13,15 @@ logger = logging.getLogger("comment_guard")
 
 
 def is_allowed_message(message: Any) -> bool:
-    if getattr(message, "is_automatic_forward", False):
-        return True
+    """
+    Allowed in the linked discussion group:
+    - automatic forwards of channel posts
+    - replies inside a comment thread
+    - bot commands for diagnostics/admin
 
-    if getattr(message, "message_thread_id", None) is not None:
+    Everything else is treated as an off-thread message and should be removed.
+    """
+    if getattr(message, "is_automatic_forward", False):
         return True
 
     if getattr(message, "reply_to_message", None) is not None:
@@ -116,9 +120,24 @@ def build_moderation_handler(settings: Settings):
             return
 
         if user and (user.id in settings.owner_user_ids or user.id in rule.exempt_user_ids):
+            logger.info(
+                "Skipped exempt/owner message | chat_id=%s | user_id=%s | message_id=%s",
+                chat.id,
+                user.id,
+                message.message_id,
+            )
             return
 
         if is_allowed_message(message):
+            logger.info(
+                "Allowed message | chat_id=%s | user_id=%s | message_id=%s | thread_id=%s | is_automatic_forward=%s | has_reply=%s",
+                chat.id,
+                user.id if user else None,
+                message.message_id,
+                getattr(message, "message_thread_id", None),
+                getattr(message, "is_automatic_forward", False),
+                getattr(message, "reply_to_message", None) is not None,
+            )
             return
 
         formatted_html = render_removed_message(update, rule, settings)
@@ -130,10 +149,11 @@ def build_moderation_handler(settings: Settings):
             return
 
         logger.info(
-            "Deleted off-thread message | chat_id=%s | user_id=%s | message_id=%s",
+            "Deleted off-thread message | chat_id=%s | user_id=%s | message_id=%s | thread_id=%s",
             chat.id,
             user.id if user else None,
             message.message_id,
+            getattr(message, "message_thread_id", None),
         )
 
         try:
