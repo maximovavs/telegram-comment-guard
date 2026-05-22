@@ -1,0 +1,22 @@
+{
+  "chats": [
+    {
+      "chat_id": -1002222222222,
+      "title": "My discussion chat 1",
+      "enabled": true,
+      "notify_mode": "group",
+      "delete_notice_after_seconds": 20,
+      "warning_template": "Комментарий удалён, потому что он не был привязан ни к одному посту.\n\n<b>Ваш текст:</b>\n{text}",
+      "exempt_user_ids": [123456789]
+    },
+    {
+      "chat_id": -1003333333333,
+      "title": "My discussion chat 2",
+      "enabled": true,
+      "notify_mode": "dm_then_group",
+      "delete_notice_after_seconds": 30,
+      "warning_template": "Ваш комментарий удалён: он был написан не под постом, а в общий поток обсуждения.\n\n<b>Текст:</b>\n{text}",
+      "exempt_user_ids": [123456789]
+    }
+  ]
+}
