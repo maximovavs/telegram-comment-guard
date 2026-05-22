@@ -1,45 +1,41 @@
 name: Moderate Telegram comments every 15 minutes
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'
   workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
 
 jobs:
   moderate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
       OWNER_USER_IDS: ${{ secrets.OWNER_USER_IDS }}
-      RUN_MODE: oneshot
-      CONFIG_PATH: config/runtime_chats.json
-      LOG_LEVEL: INFO
+      CHAT_CONFIG_JSON: ${{ secrets.CHAT_CONFIG_JSON }}
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Write runtime config from secret
+      - name: Write config from secret
         shell: bash
         run: |
           mkdir -p config
-          cat > config/runtime_chats.json <<'JSON'
-          ${{ secrets.CHAT_CONFIG_JSON }}
-          JSON
+          printf '%s' "$CHAT_CONFIG_JSON" > config/runtime_chats.json
 
-      - name: Run moderation once
+      - name: Run moderation
+        env:
+          CONFIG_PATH: config/runtime_chats.json
+          RUN_MODE: oneshot
         run: python -m app.main
