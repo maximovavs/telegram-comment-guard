@@ -19,6 +19,11 @@ def configure_logging(level_name: str) -> None:
 
 
 def _resolve_handler(*names):
+    """
+    Supports both naming styles:
+    - start / chatid / whereami
+    - cmd_start / cmd_chatid / cmd_whereami
+    """
     for name in names:
         fn = getattr(handlers_module, name, None)
         if callable(fn):
@@ -93,10 +98,31 @@ async def run_once() -> None:
         logger.info("Fetched %s pending updates", len(updates))
 
         for update in updates:
+            msg = getattr(update, "effective_message", None)
+            chat = getattr(update, "effective_chat", None)
+            user = getattr(update, "effective_user", None)
+
+            logger.info(
+                "Update debug | update_id=%s | has_message=%s | chat_id=%s | chat_type=%s | user_id=%s | text=%r | caption=%r | thread_id=%s | is_auto_forward=%s | has_reply=%s",
+                getattr(update, "update_id", None),
+                msg is not None,
+                getattr(chat, "id", None),
+                getattr(chat, "type", None),
+                getattr(user, "id", None),
+                getattr(msg, "text", None) if msg else None,
+                getattr(msg, "caption", None) if msg else None,
+                getattr(msg, "message_thread_id", None) if msg else None,
+                getattr(msg, "is_automatic_forward", False) if msg else None,
+                getattr(msg, "reply_to_message", None) is not None if msg else None,
+            )
+
             try:
                 await application.process_update(update)
             except Exception:
-                logger.exception("Failed to process update_id=%s", getattr(update, "update_id", None))
+                logger.exception(
+                    "Failed to process update_id=%s",
+                    getattr(update, "update_id", None),
+                )
 
         if updates:
             last_update_id = updates[-1].update_id
