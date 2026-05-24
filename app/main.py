@@ -5,29 +5,59 @@ import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
-from app.handlers import chatid, start, whereami
+import app.handlers as handlers_module
 from app.moderation import build_moderation_handler
 from app.settings import load_settings
 
 
 def configure_logging(level_name: str) -> None:
-    level = getattr(logging, level_name.upper(), logging.INFO)
+    level = getattr(logging, str(level_name).upper(), logging.INFO)
     logging.basicConfig(
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         level=level,
     )
 
 
+def _resolve_handler(*names):
+    for name in names:
+        fn = getattr(handlers_module, name, None)
+        if callable(fn):
+            return fn
+    return None
+
+
 def build_application():
     settings = load_settings()
-    configure_logging(settings.log_level)
+
+    log_level = getattr(settings, "log_level", "INFO")
+    configure_logging(log_level)
     logger = logging.getLogger("comment_guard")
 
-    application = Application.builder().token(settings.bot_token).build()
+    bot_token = getattr(settings, "bot_token", None) or os.getenv("BOT_TOKEN", "").strip()
+    if not bot_token:
+        raise RuntimeError("BOT_TOKEN is empty")
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("chatid", chatid))
-    application.add_handler(CommandHandler("whereami", whereami))
+    application = Application.builder().token(bot_token).build()
+
+    start_handler = _resolve_handler("cmd_start", "start")
+    chatid_handler = _resolve_handler("cmd_chatid", "chatid")
+    whereami_handler = _resolve_handler("cmd_whereami", "whereami")
+
+    if start_handler:
+        application.add_handler(CommandHandler("start", start_handler))
+    else:
+        logger.warning("No /start handler found in app.handlers")
+
+    if chatid_handler:
+        application.add_handler(CommandHandler("chatid", chatid_handler))
+    else:
+        logger.warning("No /chatid handler found in app.handlers")
+
+    if whereami_handler:
+        application.add_handler(CommandHandler("whereami", whereami_handler))
+    else:
+        logger.warning("No /whereami handler found in app.handlers")
+
     application.add_handler(
         MessageHandler(
             filters.ALL & ~filters.UpdateType.EDITED_MESSAGE,
@@ -35,30 +65,22 @@ def build_application():
         )
     )
 
-    logger.info(
-        "Bot configured | config=%s | chats=%s",
-        settings.config_path,
-        list(settings.chats.keys()),
-    )
+    config_path = getattr(settings, "config_path", os.getenv("CONFIG_PATH", ""))
+    chats = list((getattr(settings, "chats", {}) or {}).keys())
+
+    logger.info("Bot configured | config=%s | chats=%s", config_path, chats)
     return application, settings, logger
-
-
-async def run_polling() -> None:
-    application, settings, logger = build_application()
-    logger.info("Bot started in polling mode")
-    await application.run_polling(
-        allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=False,
-        close_loop=False,
-    )
 
 
 async def run_once() -> None:
     application, settings, logger = build_application()
+    config_path = getattr(settings, "config_path", os.getenv("CONFIG_PATH", ""))
+    chats = list((getattr(settings, "chats", {}) or {}).keys())
+
     logger.info(
         "Bot started in oneshot mode | config=%s | chats=%s",
-        settings.config_path,
-        list(settings.chats.keys()),
+        config_path,
+        chats,
     )
 
     await application.initialize()
@@ -74,7 +96,7 @@ async def run_once() -> None:
             try:
                 await application.process_update(update)
             except Exception:
-                logger.exception("Failed to process update_id=%s", update.update_id)
+                logger.exception("Failed to process update_id=%s", getattr(update, "update_id", None))
 
         if updates:
             last_update_id = updates[-1].update_id
@@ -90,11 +112,11 @@ async def run_once() -> None:
 
 
 def main() -> None:
-    run_mode = os.getenv("RUN_MODE", "polling").strip().lower()
+    run_mode = os.getenv("RUN_MODE", "oneshot").strip().lower()
     if run_mode == "oneshot":
         asyncio.run(run_once())
     else:
-        asyncio.run(run_polling())
+        raise RuntimeError("This build is prepared for RUN_MODE=oneshot only.")
 
 
 if __name__ == "__main__":
